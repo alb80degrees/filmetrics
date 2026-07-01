@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Papa from 'papaparse';
 import { toPng } from 'html-to-image';
-import { Film, Clock, Star, BarChart, Upload, Users, Hourglass, Activity, Terminal, HelpCircle, X, Camera, FileText } from 'lucide-react';
+import { Film, Clock, Star, Activity, Terminal, HelpCircle, X, Camera, FileText, Upload } from 'lucide-react';
 
 interface LetterboxdRow {
   Date: string;
@@ -10,18 +10,6 @@ interface LetterboxdRow {
   Year: string;
   Rating: string;
   'Watched Date'?: string;
-}
-
-interface ProcessedMovie {
-  name: string;
-  year: string;
-  rating: number;
-  runtime: number;
-  genres: string[];
-  director: string;
-  actors: string[];
-  popularity: number;
-  watchedDate: string;
 }
 
 interface WrappedData {
@@ -66,8 +54,6 @@ export default function Filmetrics() {
   const [loadingProgress, setLoadingProgress] = useState(0);
   const [logIndex, setLogIndex] = useState(0);
   const [wrappedData, setWrappedData] = useState<WrappedData | null>(null);
-  const [processedMovies, setProcessedMovies] = useState<ProcessedMovie[]>([]);
-  const [selectedFilter, setSelectedFilter] = useState<{ type: string; value: string } | null>(null);
   const [showInstructions, setShowInstructions] = useState(false);
   const [manualData, setManualData] = useState('');
   const dashboardRef = useRef<HTMLDivElement>(null);
@@ -179,15 +165,12 @@ export default function Filmetrics() {
     };
 
     const movieCache = new Map();
-    const moviesList: ProcessedMovie[] = [];
 
     for (let i = 0; i < filteredData.length; i++) {
       const row = filteredData[i];
-      const dateStr = row['Watched Date'] || row.Date;
-      let r = 0;
-
+      
       if (row.Rating) {
-        r = parseFloat(row.Rating);
+        const r = parseFloat(row.Rating);
         if (!isNaN(r)) {
           totalRating += r;
           ratedCount++;
@@ -254,18 +237,6 @@ export default function Filmetrics() {
         directorsMap[movieDetails.director] = (directorsMap[movieDetails.director] || 0) + 1;
       }
 
-      moviesList.push({
-        name: row.Name,
-        year: row.Year,
-        rating: r,
-        runtime: movieDetails.runtime,
-        genres: movieDetails.genres,
-        director: movieDetails.director,
-        actors: movieDetails.actors,
-        popularity: movieDetails.popularity,
-        watchedDate: dateStr
-      });
-
       setLoadingProgress(Math.round(((i + 1) / filteredData.length) * 100));
     }
 
@@ -287,26 +258,8 @@ export default function Filmetrics() {
       ratingDistribution: ratingDist
     });
 
-    setProcessedMovies(moviesList);
     setTimeout(() => setLoading(false), 500);
   };
-
-  const handleFilterClick = (type: string, value: string) => {
-    setSelectedFilter({ type, value });
-  };
-
-  const clearFilter = () => {
-    setSelectedFilter(null);
-  };
-
-  const filteredMovies = selectedFilter 
-    ? processedMovies.filter(m => {
-        if (selectedFilter.type === 'director') return m.director === selectedFilter.value;
-        if (selectedFilter.type === 'actor') return m.actors.includes(selectedFilter.value);
-        if (selectedFilter.type === 'genre') return m.genres.includes(selectedFilter.value);
-        return true;
-      })
-    : [];
 
   if (loading) {
     return (
@@ -464,216 +417,160 @@ export default function Filmetrics() {
                 <h2 className="text-2xl font-medium text-zinc-100 tracking-tight">@{wrappedData.username.toLowerCase()}</h2>
               </div>
               <button 
-                onClick={() => { setWrappedData(null); setProcessedMovies([]); setSelectedFilter(null); }}
+                onClick={() => setWrappedData(null)}
                 className="text-[10px] bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 font-mono px-3 py-1.5 rounded-sm transition-colors"
               >
                 [ reset ]
               </button>
             </div>
 
-            {selectedFilter ? (
-              <div className="bg-[#0f0f11] border border-zinc-800/80 rounded-lg p-6 animate-fadeIn">
-                <div className="flex justify-between items-center mb-6">
-                  <div>
-                    <h3 className="text-[10px] font-mono text-zinc-500 mb-1">
-                      filter_active: {selectedFilter.type}
-                    </h3>
-                    <h2 className="text-xl font-medium text-zinc-100 tracking-tight capitalize">
-                      {selectedFilter.value}
-                    </h2>
-                    <p className="text-xs text-zinc-500 mt-1">
-                      {filteredMovies.length} film{filteredMovies.length !== 1 ? 's' : ''} found
-                    </p>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
+              {[
+                { label: "total_films", value: wrappedData.totalMovies, icon: <Film className="w-4 h-4" /> },
+                { label: "hours_logged", value: Math.round(wrappedData.totalMinutes / 60), icon: <Clock className="w-4 h-4" /> },
+                { label: "avg_score", value: wrappedData.averageRating.toFixed(2), icon: <Star className="w-4 h-4" /> },
+                { label: "obscurity_idx", value: wrappedData.mainstreamIndex, icon: <Activity className="w-4 h-4" /> }
+              ].map((stat, idx) => (
+                <div key={idx} className="bg-[#0f0f11] border border-zinc-800/80 p-5 rounded-lg flex flex-col justify-between gap-6">
+                  <div className="text-zinc-600">
+                    {stat.icon}
                   </div>
-                  <button
-                    onClick={clearFilter}
-                    className="text-[10px] bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800 font-mono px-3 py-1.5 rounded-sm transition-colors"
-                  >
-                    [ clear filter ]
-                  </button>
+                  <div>
+                    <span className="block text-2xl font-medium text-zinc-200 tracking-tight">{stat.value}</span>
+                    <span className="block text-[10px] font-mono text-zinc-500 mt-1">{stat.label}</span>
+                  </div>
                 </div>
-                <div className="space-y-2 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
-                  {filteredMovies.map((movie, idx) => (
-                    <div key={idx} className="flex justify-between items-center bg-zinc-900/50 border border-zinc-800/50 p-3 rounded-md hover:bg-zinc-800/50 transition-colors">
-                      <div>
-                        <span className="text-sm text-zinc-200">{movie.name}</span>
-                        <span className="text-[10px] text-zinc-600 ml-2 font-mono">{movie.year}</span>
+              ))}
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+              
+              <div className="bg-[#0f0f11] border border-zinc-800/80 p-6 rounded-lg">
+                <h3 className="text-[10px] font-mono text-zinc-500 mb-6 flex items-center gap-2">
+                  <span className="w-1 h-1 bg-zinc-500 rounded-full"></span> frequent_directors
+                </h3>
+                <div className="space-y-4">
+                  {wrappedData.topDirectors.map((dir, idx) => {
+                    const percentage = (dir.count / wrappedData.topDirectors[0].count) * 100;
+                    return (
+                      <div key={dir.name} className="space-y-1.5 group">
+                        <div className="flex justify-between text-xs text-zinc-300">
+                          <span>{dir.name}</span>
+                          <span className="text-zinc-600 font-mono">{dir.count}</span>
+                        </div>
+                        <div className="w-full bg-zinc-900 h-1 rounded-full overflow-hidden">
+                          <div className={`${LOWKEY_COLORS[idx % LOWKEY_COLORS.length]} h-full rounded-full transition-all duration-1000 ease-out`} style={{ width: `${percentage}%` }} />
+                        </div>
                       </div>
-                      <div className="flex items-center gap-4">
-                        <span className="text-[10px] text-zinc-500 font-mono">{movie.runtime}m</span>
-                        {movie.rating > 0 && (
-                          <span className="text-[10px] text-zinc-400 font-mono flex items-center gap-1">
-                            <Star className="w-3 h-3" /> {movie.rating.toFixed(1)}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
-            ) : (
-              <>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
-                  {[
-                    { label: "total_films", value: wrappedData.totalMovies, icon: <Film className="w-4 h-4" /> },
-                    { label: "hours_logged", value: Math.round(wrappedData.totalMinutes / 60), icon: <Clock className="w-4 h-4" /> },
-                    { label: "avg_score", value: wrappedData.averageRating.toFixed(2), icon: <Star className="w-4 h-4" /> },
-                    { label: "obscurity_idx", value: wrappedData.mainstreamIndex, icon: <Activity className="w-4 h-4" /> }
-                  ].map((stat, idx) => (
-                    <div key={idx} className="bg-[#0f0f11] border border-zinc-800/80 p-5 rounded-lg flex flex-col justify-between gap-6">
-                      <div className="text-zinc-600">
-                        {stat.icon}
+
+              <div className="bg-[#0f0f11] border border-zinc-800/80 p-6 rounded-lg">
+                <h3 className="text-[10px] font-mono text-zinc-500 mb-6 flex items-center gap-2">
+                  <span className="w-1 h-1 bg-zinc-500 rounded-full"></span> frequent_cast
+                </h3>
+                <div className="space-y-4">
+                  {wrappedData.topActors.map((actor, idx) => {
+                    const percentage = (actor.count / wrappedData.topActors[0].count) * 100;
+                    return (
+                      <div key={actor.name} className="space-y-1.5 group">
+                        <div className="flex justify-between text-xs text-zinc-300">
+                          <span>{actor.name}</span>
+                          <span className="text-zinc-600 font-mono">{actor.count}</span>
+                        </div>
+                        <div className="w-full bg-zinc-900 h-1 rounded-full overflow-hidden">
+                          <div className={`${LOWKEY_COLORS[idx % LOWKEY_COLORS.length]} h-full rounded-full transition-all duration-1000 ease-out`} style={{ width: `${percentage}%` }} />
+                        </div>
                       </div>
-                      <div>
-                        <span className="block text-2xl font-medium text-zinc-200 tracking-tight">{stat.value}</span>
-                        <span className="block text-[10px] font-mono text-zinc-500 mt-1">{stat.label}</span>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
+              </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
-                  
-                  <div className="bg-[#0f0f11] border border-zinc-800/80 p-6 rounded-lg">
-                    <h3 className="text-[10px] font-mono text-zinc-500 mb-6 flex items-center gap-2">
-                      <span className="w-1 h-1 bg-zinc-500 rounded-full"></span> frequent_directors
-                    </h3>
-                    <div className="space-y-4">
-                      {wrappedData.topDirectors.map((dir, idx) => {
-                        const percentage = (dir.count / wrappedData.topDirectors[0].count) * 100;
-                        return (
-                          <div 
-                            key={dir.name} 
-                            className="space-y-1.5 group cursor-pointer"
-                            onClick={() => handleFilterClick('director', dir.name)}
-                          >
-                            <div className="flex justify-between text-xs text-zinc-300">
-                              <span>{dir.name}</span>
-                              <span className="text-zinc-600 font-mono">{dir.count}</span>
-                            </div>
-                            <div className="w-full bg-zinc-900 h-1 rounded-full overflow-hidden group-hover:bg-zinc-800 transition-colors">
-                              <div className={`${LOWKEY_COLORS[idx % LOWKEY_COLORS.length]} h-full rounded-full transition-all duration-1000 ease-out group-hover:brightness-125`} style={{ width: `${percentage}%` }} />
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  <div className="bg-[#0f0f11] border border-zinc-800/80 p-6 rounded-lg">
-                    <h3 className="text-[10px] font-mono text-zinc-500 mb-6 flex items-center gap-2">
-                      <span className="w-1 h-1 bg-zinc-500 rounded-full"></span> frequent_cast
-                    </h3>
-                    <div className="space-y-4">
-                      {wrappedData.topActors.map((actor, idx) => {
-                        const percentage = (actor.count / wrappedData.topActors[0].count) * 100;
-                        return (
-                          <div 
-                            key={actor.name} 
-                            className="space-y-1.5 group cursor-pointer"
-                            onClick={() => handleFilterClick('actor', actor.name)}
-                          >
-                            <div className="flex justify-between text-xs text-zinc-300">
-                              <span>{actor.name}</span>
-                              <span className="text-zinc-600 font-mono">{actor.count}</span>
-                            </div>
-                            <div className="w-full bg-zinc-900 h-1 rounded-full overflow-hidden group-hover:bg-zinc-800 transition-colors">
-                              <div className={`${LOWKEY_COLORS[idx % LOWKEY_COLORS.length]} h-full rounded-full transition-all duration-1000 ease-out group-hover:brightness-125`} style={{ width: `${percentage}%` }} />
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  <div className="bg-[#0f0f11] border border-zinc-800/80 p-6 rounded-lg">
-                    <h3 className="text-[10px] font-mono text-zinc-500 mb-6 flex items-center gap-2">
-                      <span className="w-1 h-1 bg-zinc-500 rounded-full"></span> genre_distribution
-                    </h3>
-                    <div className="space-y-4">
-                      {wrappedData.topGenres.map((genre, idx) => {
-                        const percentage = (genre.count / wrappedData.topGenres[0].count) * 100;
-                        return (
-                          <div 
-                            key={genre.name} 
-                            className="space-y-1.5 group cursor-pointer"
-                            onClick={() => handleFilterClick('genre', genre.name)}
-                          >
-                            <div className="flex justify-between text-xs text-zinc-300">
-                              <span>{genre.name}</span>
-                              <span className="text-zinc-600 font-mono">{genre.count}</span>
-                            </div>
-                            <div className="w-full bg-zinc-900 h-1 rounded-full overflow-hidden group-hover:bg-zinc-800 transition-colors">
-                              <div className={`${LOWKEY_COLORS[idx % LOWKEY_COLORS.length]} h-full rounded-full transition-all duration-1000 ease-out group-hover:brightness-125`} style={{ width: `${percentage}%` }} />
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  <div className="bg-[#0f0f11] border border-zinc-800/80 p-6 rounded-lg flex flex-col justify-between gap-6">
-                    <div>
-                      <h3 className="text-[10px] font-mono text-zinc-500 mb-6 flex items-center gap-2">
-                        <span className="w-1 h-1 bg-zinc-500 rounded-full"></span> temporal_spread
-                      </h3>
-                      <div className="flex items-end justify-between h-24 pt-2 border-b border-zinc-800">
-                        {wrappedData.decades.map((decade) => {
-                          const maxCount = Math.max(...wrappedData.decades.map(d => d.count), 1);
-                          const height = (decade.count / maxCount) * 100;
-                          return (
-                            <div key={decade.name} className="flex flex-col items-center justify-end flex-1 group h-full">
-                              <span className="text-[9px] text-zinc-500 opacity-0 group-hover:opacity-100 mb-1 transition duration-200">{decade.count}</span>
-                              <div className="w-full max-w-[20px] bg-zinc-800 rounded-t-sm transition-all duration-500 group-hover:bg-zinc-500" style={{ height: `${Math.max(height, 5)}%` }} />
-                              <span className="text-[9px] font-mono mt-2 text-zinc-600">{decade.name}</span>
-                            </div>
-                          );
-                        })}
+              <div className="bg-[#0f0f11] border border-zinc-800/80 p-6 rounded-lg">
+                <h3 className="text-[10px] font-mono text-zinc-500 mb-6 flex items-center gap-2">
+                  <span className="w-1 h-1 bg-zinc-500 rounded-full"></span> genre_distribution
+                </h3>
+                <div className="space-y-4">
+                  {wrappedData.topGenres.map((genre, idx) => {
+                    const percentage = (genre.count / wrappedData.topGenres[0].count) * 100;
+                    return (
+                      <div key={genre.name} className="space-y-1.5 group">
+                        <div className="flex justify-between text-xs text-zinc-300">
+                          <span>{genre.name}</span>
+                          <span className="text-zinc-600 font-mono">{genre.count}</span>
+                        </div>
+                        <div className="w-full bg-zinc-900 h-1 rounded-full overflow-hidden">
+                          <div className={`${LOWKEY_COLORS[idx % LOWKEY_COLORS.length]} h-full rounded-full transition-all duration-1000 ease-out`} style={{ width: `${percentage}%` }} />
+                        </div>
                       </div>
-                    </div>
-
-                    <div className="bg-zinc-900/50 border border-zinc-800/50 p-4 rounded-md flex items-center justify-between">
-                      <div>
-                        <span className="block text-[10px] font-mono text-zinc-500 mb-1">longest_runtime</span>
-                        <span className="text-xs text-zinc-300 truncate max-w-[150px]">{wrappedData.longestFilm.name}</span>
-                      </div>
-                      <div className="text-right">
-                        <span className="text-sm text-zinc-300 font-mono">{wrappedData.longestFilm.runtime}</span>
-                        <span className="text-[9px] text-zinc-600 ml-1">min</span>
-                      </div>
-                    </div>
-                  </div>
+                    );
+                  })}
                 </div>
+              </div>
 
-                <div className="bg-[#0f0f11] border border-zinc-800/80 p-6 rounded-lg">
-                  <h3 className="text-[10px] font-mono text-zinc-500 mb-8 flex items-center gap-2">
-                    <span className="w-1 h-1 bg-zinc-500 rounded-full"></span> critical_curve
+              <div className="bg-[#0f0f11] border border-zinc-800/80 p-6 rounded-lg flex flex-col justify-between gap-6">
+                <div>
+                  <h3 className="text-[10px] font-mono text-zinc-500 mb-6 flex items-center gap-2">
+                    <span className="w-1 h-1 bg-zinc-500 rounded-full"></span> temporal_spread
                   </h3>
-                  <div className="flex items-end justify-between h-32 pt-4 px-2">
-                    {Object.entries(wrappedData.ratingDistribution).map(([rating, count]) => {
-                      const counts = Object.values(wrappedData.ratingDistribution);
-                      const maxCount = Math.max(...counts, 1);
-                      const barHeight = (count / maxCount) * 100; 
-                      
+                  <div className="flex items-end justify-between h-24 pt-2 border-b border-zinc-800">
+                    {wrappedData.decades.map((decade) => {
+                      const maxCount = Math.max(...wrappedData.decades.map(d => d.count), 1);
+                      const height = (decade.count / maxCount) * 100;
                       return (
-                        <div key={rating} className="flex flex-col items-center justify-end flex-1 group h-full">
-                          <span className="text-[10px] text-zinc-500 opacity-0 group-hover:opacity-100 mb-2 transition duration-200 font-mono">
-                            {count}
-                          </span>
-                          <div 
-                            className="w-full max-w-[24px] bg-zinc-800/80 rounded-t-sm transition-all duration-1000 ease-out group-hover:bg-zinc-400"
-                            style={{ height: `${Math.max(barHeight, 4)}%` }}
-                          />
-                          <span className="text-[10px] mt-2 border-t border-zinc-800 pt-2 w-full text-center text-zinc-600 font-mono">
-                            {rating}
-                          </span>
+                        <div key={decade.name} className="flex flex-col items-center justify-end flex-1 group h-full">
+                          <span className="text-[9px] text-zinc-500 opacity-0 group-hover:opacity-100 mb-1 transition duration-200">{decade.count}</span>
+                          <div className="w-full max-w-[20px] bg-zinc-800 rounded-t-sm transition-all duration-500 group-hover:bg-zinc-500" style={{ height: `${Math.max(height, 5)}%` }} />
+                          <span className="text-[9px] font-mono mt-2 text-zinc-600">{decade.name}</span>
                         </div>
                       );
                     })}
                   </div>
                 </div>
-              </>
-            )}
+
+                <div className="bg-zinc-900/50 border border-zinc-800/50 p-4 rounded-md flex items-center justify-between">
+                  <div>
+                    <span className="block text-[10px] font-mono text-zinc-500 mb-1">longest_runtime</span>
+                    <span className="text-xs text-zinc-300 truncate max-w-[150px]">{wrappedData.longestFilm.name}</span>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-sm text-zinc-300 font-mono">{wrappedData.longestFilm.runtime}</span>
+                    <span className="text-[9px] text-zinc-600 ml-1">min</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-[#0f0f11] border border-zinc-800/80 p-6 rounded-lg">
+              <h3 className="text-[10px] font-mono text-zinc-500 mb-8 flex items-center gap-2">
+                <span className="w-1 h-1 bg-zinc-500 rounded-full"></span> critical_curve
+              </h3>
+              <div className="flex items-end justify-between h-32 pt-4 px-2">
+                {Object.entries(wrappedData.ratingDistribution).map(([rating, count]) => {
+                  const counts = Object.values(wrappedData.ratingDistribution);
+                  const maxCount = Math.max(...counts, 1);
+                  const barHeight = (count / maxCount) * 100; 
+                  
+                  return (
+                    <div key={rating} className="flex flex-col items-center justify-end flex-1 group h-full">
+                      <span className="text-[10px] text-zinc-500 opacity-0 group-hover:opacity-100 mb-2 transition duration-200 font-mono">
+                        {count}
+                      </span>
+                      <div 
+                        className="w-full max-w-[24px] bg-zinc-800/80 rounded-t-sm transition-all duration-1000 ease-out group-hover:bg-zinc-400"
+                        style={{ height: `${Math.max(barHeight, 4)}%` }}
+                      />
+                      <span className="text-[10px] mt-2 border-t border-zinc-800 pt-2 w-full text-center text-zinc-600 font-mono">
+                        {rating}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           </div>
         )}
       </main>
