@@ -1,5 +1,6 @@
 'use client';
 import React, { useState, useEffect, useRef } from 'react';
+// @ts-ignore
 import Papa from 'papaparse';
 import { toPng } from 'html-to-image';
 import { Film, Clock, Star, Activity, Terminal, HelpCircle, X, Camera, FileText, Upload } from 'lucide-react';
